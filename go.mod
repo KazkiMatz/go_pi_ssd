@@ -1,4 +1,4 @@
-module ssd_reader
+module go_pi_ssd
 
 go 1.16
 
