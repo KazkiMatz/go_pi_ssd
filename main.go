@@ -6,7 +6,7 @@ import (
   "time"
   "strconv"
   "errors"
-
+  "encoding/json"
   "github.com/stianeikeland/go-rpio"
 )
 
@@ -185,6 +185,12 @@ var numPatterns = []string{
   "1111011", // 9
 }
 
+type Message struct {
+  Time string `json:"time"`
+  Count int `json:"count"`
+  Values []float64 `json:"values"`
+}
+
 func main() {
   fmt.Println("opening gpio")
   err := rpio.Open()
@@ -238,7 +244,9 @@ func main() {
 
   for {
     vals := <-chVal
-    fmt.Println(fmt.Sprintf("%d: %v", c, vals))
+    m := Message{Values: vals, Count: c}
+    mJson, _ := json.Marshal(m)
+    fmt.Println(string(mJson))
     c += 1
   }
 }
