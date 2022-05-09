@@ -3,6 +3,7 @@ package main
 import (
   "fmt"
   "math"
+  "os"
   "time"
   "strconv"
   "errors"
@@ -11,6 +12,7 @@ import (
 )
 
 type Display struct {
+  triggerPinIds []int
   triggerPins []rpio.Pin
   segmentPins []rpio.Pin
   initPins []bool
@@ -34,6 +36,8 @@ func (d *Display) tryDetectPin(i int) bool {
   if d.donePins[i] {
     return false
   }
+
+  //fmt.Println(fmt.Sprintf("GPIO Pins: %v, target: %d", d.triggerPins, d.triggerPins[i]))
 
   triggered := d.triggerPins[i].EdgeDetected()
   if triggered {
@@ -147,7 +151,7 @@ func (d *Display) Read() (float64, error) {
   }
 }
 
-func NewDisplay(triggerPins []rpio.Pin, segmentPins []rpio.Pin) *Display {
+func NewDisplay(triggerPinIds []int, segmentPins []rpio.Pin) *Display {
   if len(segmentPins) != 8 {
     panic("Wrong pin arguments")
   }
@@ -158,7 +162,14 @@ func NewDisplay(triggerPins []rpio.Pin, segmentPins []rpio.Pin) *Display {
     chars[i] = int(n)
   }
 
+  triggerPins := make([]rpio.Pin, len(triggerPinIds))
+  for j, id := range triggerPinIds {
+    triggerPins[j] = rpio.Pin(id)
+    triggerPins[j].Input()
+  }
+
   display := &Display{
+    triggerPinIds: triggerPinIds,
     triggerPins: triggerPins,
     segmentPins: segmentPins,
     digits: make([]int, len(triggerPins)),
@@ -208,19 +219,11 @@ func main() {
     segmentPins[i].Input()
   }
 
-  triggerPinIds := [][]int{[]int{21, 20, 16}, []int{25, 24, 23}}
-  triggerPins := make([][]rpio.Pin, len(triggerPinIds))
-  for i, ids := range triggerPinIds {
-    triggerPins[i] = make([]rpio.Pin, len(ids))
-    for j, id := range ids {
-      triggerPins[i][j] = rpio.Pin(id)
-      triggerPins[i][j].Input()
-    }
-  }
+  triggerPinIdSets := [][]int{[]int{21, 20, 16}, []int{25, 24, 23}}
 
-  displays := make([]*Display, len(triggerPins))
-  for i, _ := range triggerPinIds {
-    displays[i] = NewDisplay(triggerPins[i], segmentPins)
+  displays := make([]*Display, len(triggerPinIdSets))
+  for i, _ := range triggerPinIdSets {
+    displays[i] = NewDisplay(triggerPinIdSets[i], segmentPins)
   }
 
   chVal := make(chan []float64)
@@ -231,7 +234,10 @@ func main() {
       vals := make([]float64, len(displays))
 
       for i, d := range displays {
-        vals[i], _ = d.Read()
+        vals[i], err = d.Read()
+        if err != nil {
+          fmt.Fprintf(os.Stderr, "%s", err.Error())
+        }
       }
 
       chVal <- vals
