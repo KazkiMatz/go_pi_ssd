@@ -234,10 +234,25 @@ func main() {
     for {
       vals := make([]float64, len(displays))
 
-      for i, d := range displays {
-        vals[i], err = d.Read()
-        if err != nil {
-          fmt.Fprintf(os.Stderr, "%s", err.Error())
+      c := 0
+      for {
+        for i, d := range displays {
+          val, err := d.Read()
+          if err != nil {
+            fmt.Fprintf(os.Stderr, "%s", err.Error())
+          }
+
+          if c > 0 && val != vals[i] {
+            fmt.Fprintf(os.Stderr, "Mismatch detected in display:%d\n", i)
+            c -= 1
+          }
+
+          vals[i] = val
+        }
+        c += 1
+
+        if c > 1 {
+          break
         }
       }
 
