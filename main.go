@@ -165,7 +165,7 @@ func NewDisplay(triggerPinIds []int, segmentPins []rpio.Pin) *Display {
   for j, id := range triggerPinIds {
     triggerPins[j] = rpio.Pin(id)
     triggerPins[j].Input()
-    triggerPins[j].PullOff()
+    triggerPins[j].PullDown()
   }
 
   display := &Display{
