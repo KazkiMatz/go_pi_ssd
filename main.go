@@ -22,16 +22,6 @@ type Display struct {
   chars []int
 }
 
-func (d *Display) tryInitPin(i int) bool {
-  if d.initPins[i] {
-    return false
-  }
-
-  d.triggerPins[i].Detect(rpio.FallEdge)
-  d.initPins[i] = true
-  return true
-}
-
 func (d *Display) tryDetectPin(i int) bool {
   if d.donePins[i] {
     return false
@@ -39,12 +29,12 @@ func (d *Display) tryDetectPin(i int) bool {
 
   //fmt.Println(fmt.Sprintf("GPIO Pins: %v, target: %d", d.triggerPins, d.triggerPins[i]))
 
-  triggered := d.triggerPins[i].EdgeDetected()
-  if triggered {
+  if d.triggerPins[i].Read() == rpio.Low {
     d.donePins[i] = true
+    return true
   }
 
-  return triggered
+  return false
 }
 
 func (d *Display) done() bool {
@@ -121,12 +111,17 @@ func (d *Display) readDigits() float64 {
   return val
 }
 
+var triggerLvEdgeDuration = 500*time.Microsecond
+var triggerPinPollInterval = 100*time.Microsecond
+var segDriveEdgeDuration = 2*time.Millisecond
+
 func (d *Display) Read() (float64, error) {
   for {
     for j, pin := range d.triggerPins {
-      d.tryInitPin(j)
       triggered := d.tryDetectPin(j)
       if triggered {
+        time.Sleep(triggerLvEdgeDuration*2)
+
         pin.Detect(rpio.NoEdge)
 
         seg, dp, err := d.readSegment()
@@ -146,6 +141,10 @@ func (d *Display) Read() (float64, error) {
           d.clear()
           return d.readDigits(), nil
         }
+
+        time.Sleep(segDriveEdgeDuration/2)
+      } else {
+        time.Sleep(triggerPinPollInterval)
       }
     }
   }
@@ -166,6 +165,7 @@ func NewDisplay(triggerPinIds []int, segmentPins []rpio.Pin) *Display {
   for j, id := range triggerPinIds {
     triggerPins[j] = rpio.Pin(id)
     triggerPins[j].Input()
+    triggerPins[j].PullOff()
   }
 
   display := &Display{
@@ -217,6 +217,7 @@ func main() {
   for i, id := range segmentPinIds {
     segmentPins[i] = rpio.Pin(id)
     segmentPins[i].Input()
+    segmentPins[i].PullOff()
   }
 
   triggerPinIdSets := [][]int{[]int{21, 20, 16}, []int{25, 24, 23}}
